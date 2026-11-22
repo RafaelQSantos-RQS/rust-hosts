@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout (com tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Toolchain Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Confer versão da tag x Cargo.toml
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#v}"
+          CARGO_VERSION="$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          if [ "$TAG" != "$CARGO_VERSION" ]; then
+            echo "Tag v$TAG não bate com Cargo.toml $CARGO_VERSION" >&2
+            exit 1
+          fi
+          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+
+      - name: Dependências do sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libxkbcommon-dev libwayland-dev libx11-dev libgl1-mesa-dev libfontconfig1-dev \
+            appstream desktop-file-utils imagemagick wget
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release
+        run: cargo build --release
+
+      - name: Baixar appimagetool
+        run: |
+          set -euo pipefail
+          wget -q \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            -O "$RUNNER_TEMP/appimagetool"
+          chmod +x "$RUNNER_TEMP/appimagetool"
+          echo "APPIMAGETOOL=$RUNNER_TEMP/appimagetool" >> "$GITHUB_ENV"
+
+      - name: Montar AppDir
+        shell: bash
+        run: |
+          set -euo pipefail
+          ID=io.github.RafaelQSantos_RQS.RustHosts
+          APPDIR="$GITHUB_WORKSPACE/target/AppDir"
+          rm -rf "$APPDIR"
+          mkdir -p "$APPDIR/usr/bin" \
+            "$APPDIR/usr/share/applications" \
+            "$APPDIR/usr/share/metainfo" \
+            "$APPDIR/usr/share/icons/hicolor/scalable/apps" \
+            "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+          cp target/release/rust-hosts target/release/rust-hosts-helper "$APPDIR/usr/bin/"
+          cp "packaging/$ID.desktop" "$APPDIR/usr/share/applications/"
+          cp "packaging/$ID.desktop" "$APPDIR/"
+          cp "packaging/$ID.appdata.xml" "$APPDIR/usr/share/metainfo/"
+          cp assets/rust-hosts.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/"
+          convert -background none assets/rust-hosts.svg -resize 256x256 \
+            "$APPDIR/usr/share/icons/hicolor/256x256/apps/rust-hosts.png"
+          cp "$APPDIR/usr/share/icons/hicolor/256x256/apps/rust-hosts.png" "$APPDIR/rust-hosts.png"
+          cat > "$APPDIR/AppRun" <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          exec "$HERE/usr/bin/rust-hosts" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+          chmod -R a+rX "$APPDIR"
+
+      - name: Validar metadados
+        run: |
+          set -euo pipefail
+          desktop-file-validate packaging/io.github.RafaelQSantos_RQS.RustHosts.desktop
+          appstreamcli validate --no-net packaging/io.github.RafaelQSantos_RQS.RustHosts.appdata.xml
+          appstreamcli validate-tree target/AppDir
+
+      - name: Gerar AppImage
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          ARCH: x86_64
+        run: |
+          "$APPIMAGETOOL" target/AppDir "target/rust-hosts-${VERSION}-x86_64.AppImage"
+
+      - name: Notas de release (git-cliff)
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          body: ${{ steps.cliff.outputs.content }}
+          files: target/rust-hosts-${{ env.VERSION }}-x86_64.AppImage
+          generate_release_notes: false

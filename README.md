@@ -109,6 +109,8 @@ Import e Restore reescrevem o arquivo inteiro com `--restore`; Apply troca apena
 | `assets/rust-hosts.svg` | ícone do app |
 | `packaging/io.github.RafaelQSantos_RQS.RustHosts.desktop` | entrada de menu (AppImage e instalação manual) |
 | `packaging/io.github.RafaelQSantos_RQS.RustHosts.appdata.xml` | metadados AppStream (descrição, licença, release) |
+| `.github/workflows/release.yml` | build, validação e publicação do AppImage |
+| `cliff.toml` | configuração das notas de release (git-cliff) |
 | `tests/parser.rs` | fixtures de aceite do formato |
 
 O parser e a lógica de escrita são UI-free e testáveis; a camada Iced só chama essas funções. Os textos da interface são em inglês; a documentação é em português.
@@ -123,6 +125,20 @@ cargo build --release
 ```
 
 Os testes usam fixtures: nunca leem/escrevem o `/etc/hosts` real e nunca chamam `pkexec`. A verificação visual ainda é manual, na sessão gráfica do usuário.
+
+## Release
+
+O workflow `.github/workflows/release.yml` dispara ao empurrar uma tag `vX.Y.Z`. Ele confere se a tag bate com o `version` do `Cargo.toml`, compila na `ubuntu-22.04`, monta e valida o AppDir (`desktop-file-validate` e `appstreamcli`), gera o AppImage e publica o binário numa GitHub Release. As notas vêm do `cliff.toml`, via git-cliff, a partir dos commits convencionais.
+
+```sh
+cargo set-version 0.2.1
+git add Cargo.toml Cargo.lock
+git commit -m "build: bumpa para 0.2.1"
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
+```
+
+Por enquanto só Linux e só AppImage — sem `.deb` nem builds para macOS/Windows.
 
 ## Documentação
 
