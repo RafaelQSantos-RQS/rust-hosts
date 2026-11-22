@@ -312,6 +312,9 @@ fn view_footer(state: &State) -> Element<'_, Message> {
     };
 
     let mut footer = column![];
+    if let Some(banner) = view_external(state) {
+        footer = footer.push(banner);
+    }
     if let Some(banner) = view_helper(state) {
         footer = footer.push(banner);
     }
@@ -320,6 +323,32 @@ fn view_footer(state: &State) -> Element<'_, Message> {
         .push(rule::horizontal(1))
         .push(container(content).padding(12).width(Length::Fill))
         .into()
+}
+
+/// Faixa permanente enquanto o arquivo no disco diverge do que foi carregado.
+fn view_external(state: &State) -> Option<Element<'_, Message>> {
+    if !state.external() {
+        return None;
+    }
+
+    Some(
+        container(
+            row![
+                text("The hosts file changed on disk since it was loaded.")
+                    .size(12)
+                    .style(text::danger),
+                Space::new().width(Length::Fill),
+                quiet_action("Show diff", when(state, true, Message::ConflictDiff)),
+                quiet_action("Reload", when(state, true, Message::Reload)),
+            ]
+            .spacing(8)
+            .align_y(Alignment::Center),
+        )
+        .padding([8, 12])
+        .width(Length::Fill)
+        .style(container::rounded_box)
+        .into(),
+    )
 }
 
 /// Faixa permanente enquanto o helper instalado não serve: o Apply fica desligado.

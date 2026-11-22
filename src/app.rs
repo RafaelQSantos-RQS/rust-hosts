@@ -34,6 +34,11 @@ fn view(state: &State) -> Element<'_, Message> {
 fn subscription(_state: &State) -> Subscription<Message> {
     Subscription::batch([
         iced::window::close_requests().map(Message::CloseRequested),
+        // Voltar à janela é o momento natural de avisar que outro processo mexeu no arquivo.
+        iced::window::events().filter_map(|(_, event)| match event {
+            iced::window::Event::Focused => Some(Message::PollFile),
+            _ => None,
+        }),
         // Esc fecha o modal aberto; Ctrl+S abre o diff. Ambos passam pelo update,
         // que ignora enquanto a escrita privilegiada está em curso.
         iced::keyboard::listen().filter_map(|event| match event {
@@ -48,6 +53,7 @@ fn subscription(_state: &State) -> Subscription<Message> {
             } if modifiers.command() && character.as_str().eq_ignore_ascii_case("s") => {
                 Some(Message::ApplyPressed)
             }
+            iced::keyboard::Event::KeyPressed { .. } => Some(Message::PollFile),
             _ => None,
         }),
     ])
@@ -68,6 +74,8 @@ pub struct State {
     /// Grupos fechados na lista, por nome.
     collapsed: Vec<String>,
     unmanaged_open: bool,
+    /// O arquivo mudou no disco desde a última leitura; avisado no rodapé.
+    external: bool,
     modal: Modal,
     busy: bool,
     /// Estado do helper instalado, checado na abertura e ao rechecar.
@@ -163,6 +171,7 @@ pub enum Confirm {
 #[derive(Debug, Clone)]
 pub enum Message {
     SearchChanged(String),
+    PollFile,
     ToggleUnmanaged,
     CreateBlock,
     ToggleGroup(usize),
@@ -219,6 +228,7 @@ impl State {
             search: String::new(),
             collapsed: Vec::new(),
             unmanaged_open: false,
+            external: false,
             modal: Modal::None,
             busy: false,
             helper: apply::helper_state(),
@@ -240,11 +250,16 @@ impl State {
         self.baseline = document;
         self.loaded = text;
         self.load_error = None;
+        self.external = false;
         Ok(())
     }
 
     pub fn is_dirty(&self) -> bool {
         self.document != self.baseline
+    }
+
+    pub fn external(&self) -> bool {
+        self.external
     }
 
     pub fn load_error(&self) -> Option<&str> {
@@ -777,6 +792,15 @@ impl State {
 fn update(state: &mut State, message: Message) -> Task<Message> {
     match message {
         Message::SearchChanged(value) => state.search = value,
+        Message::PollFile => {
+            // Não interrompe quem está digitando num modal nem uma escrita em curso.
+            if state.busy || !matches!(state.modal, Modal::None) {
+                return Task::none();
+            }
+            if let Ok(text) = hosts::read(&state.hosts_path) {
+                state.external = hosts::hash(text.as_bytes()) != state.hash;
+            }
+        }
         Message::ToggleUnmanaged => state.unmanaged_open = !state.unmanaged_open,
         Message::CreateBlock => {
             if state.document.block.is_none() {
@@ -1026,6 +1050,7 @@ mod tests {
             search: String::new(),
             collapsed: Vec::new(),
             unmanaged_open: false,
+            external: false,
             modal: Modal::None,
             busy: false,
             helper: apply::HelperState::Ready,
@@ -1264,6 +1289,31 @@ mod tests {
 
         assert!(matches!(state.modal(), Modal::None));
         assert!(!state.is_dirty());
+    }
+
+    #[test]
+    fn polling_notices_a_change_made_outside_the_app() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hosts");
+        std::fs::write(&path, SAMPLE).unwrap();
+
+        let mut state = state();
+        state.hosts_path = path.clone();
+
+        send(&mut state, Message::PollFile);
+        assert!(!state.external());
+
+        std::fs::write(&path, format!("{SAMPLE}127.0.0.9 outside.test\n")).unwrap();
+        send(&mut state, Message::PollFile);
+        assert!(state.external());
+
+        send(&mut state, Message::ConflictDiff);
+        assert!(matches!(state.modal(), Modal::Diff(_)));
+        send(&mut state, Message::FormCancel);
+        assert!(state.external());
+
+        send(&mut state, Message::Reload);
+        assert!(!state.external());
     }
 
     #[test]

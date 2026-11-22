@@ -58,7 +58,7 @@ O app só altera o bloco:
 
 ## Conflito externo
 
-Qualquer mudança no `/etc/hosts` desde o carregamento bloqueia o Apply. A UI oferece Reload (com confirmação se houver edições não salvas) ou Diff. Nunca sobrescrever em silêncio.
+Qualquer mudança no `/etc/hosts` desde o carregamento bloqueia o Apply. Uma checagem do hash ao focar a janela ou ao digitar avisa no rodapé sem interromper a edição, com Show diff (somente leitura) e Reload (com confirmação se houver edições não salvas). A confirmação antes de escrever reconfere o hash. Nunca sobrescrever em silêncio.
 
 ## Segurança
 
@@ -79,6 +79,7 @@ Textos da UI em inglês; documentação em português.
 - Rodapé: estado dirty, mensagem de status (clique dispensa), Enable/Disable all, Reload e Apply como única ação primária; Apply fica desabilitado sem alterações.
 - "Unmanaged entries" colapsável e somente leitura.
 - Se o helper instalado falta ou é de outra versão, uma faixa no rodapé desabilita o Apply e oferece Install helper (`pkexec install`), Copy command e Recheck.
+- Se o arquivo mudou no disco, outra faixa oferece Show diff e Reload; ela permanece até uma recarga.
 - Estados: sem bloco (Import/Create block), bloco vazio (New group/Import), arquivo alterado, erro de leitura (Reload/Restore).
 - Criar grupo: New group no bloco vazio, + Group no topo quando já há grupos. O grupo só entra no documento ao confirmar o nome e não pode repetir um nome existente; o modal é o mesmo do Rename.
 - Modais: Add/Edit Entry (IP, hostnames, grupo escolhido numa lista), Rename, Import, Restore, Diff/Apply, Confirm Delete/Reload/Close, Conflito externo. O diff é lado a lado e destaca as linhas alteradas.
