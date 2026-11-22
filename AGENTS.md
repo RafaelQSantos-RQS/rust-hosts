@@ -5,21 +5,22 @@ Personal Linux desktop app that edits a marked block of `/etc/hosts`. The design
 ## Read first
 
 - `docs/design.md` — agreed behavior. Implement that; the MVP scope and non-goals are explicit.
-- `docs/adr/0001`–`0005` — why the model is what it is (structured editing, pkexec helper, Iced, managed block, block format).
+- `docs/adr/0001`–`0006` — why the model is what it is (structured editing, pkexec helper, Iced, managed block, block format, in-app helper install).
 - `GLOSSARY.md` — domain vocabulary. Docs are Portuguese; every UI string is English.
+- `README.md` — user-facing overview; keep it in sync when behavior changes.
 
 ## Dependencies
 
 Use the `cargo` CLI for all package management: `cargo add`, `cargo remove`, `cargo update`, `cargo tree`, `cargo metadata`. Never hand-edit `[dependencies]` in `Cargo.toml`; only bypass cargo when it genuinely cannot perform the operation.
 
-Iced 0.14 is the chosen UI stack (ADR-0003) and is not added to `Cargo.toml` yet. Edition 2024, Linux only.
+Iced 0.14 is the chosen UI stack (ADR-0003) and is pinned in `Cargo.toml`. Edition 2024, Linux only.
 
 ## Commands
 
 ```sh
 cargo run --release                 # dev run; helper must be installed once
 cargo fmt --check
-cargo clippy -- -D warnings
+cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build --release
 ```

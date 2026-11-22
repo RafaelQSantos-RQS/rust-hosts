@@ -110,4 +110,4 @@ Perfis de ambiente; export/import de fragmentos; tema/atalhos; acessibilidade qu
 
 ## Decisões registradas
 
-`GLOSSARY.md` e ADRs `0001`–`0005`.
+`GLOSSARY.md` e ADRs `0001`–`0006`.
