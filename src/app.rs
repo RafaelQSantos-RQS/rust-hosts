@@ -34,12 +34,20 @@ fn view(state: &State) -> Element<'_, Message> {
 fn subscription(_state: &State) -> Subscription<Message> {
     Subscription::batch([
         iced::window::close_requests().map(Message::CloseRequested),
-        // Esc fecha o modal aberto; durante a escrita privilegiada não faz nada (ver update).
+        // Esc fecha o modal aberto; Ctrl+S abre o diff. Ambos passam pelo update,
+        // que ignora enquanto a escrita privilegiada está em curso.
         iced::keyboard::listen().filter_map(|event| match event {
             iced::keyboard::Event::KeyPressed {
                 key: iced::keyboard::Key::Named(iced::keyboard::key::Named::Escape),
                 ..
             } => Some(Message::FormCancel),
+            iced::keyboard::Event::KeyPressed {
+                key: iced::keyboard::Key::Character(character),
+                modifiers,
+                ..
+            } if modifiers.command() && character.as_str().eq_ignore_ascii_case("s") => {
+                Some(Message::ApplyPressed)
+            }
             _ => None,
         }),
     ])
@@ -103,6 +111,8 @@ pub enum Modal {
 pub struct EntryForm {
     /// `Some` quando está editando uma entrada existente.
     pub target: Option<(usize, usize)>,
+    /// Nomes dos grupos existentes, para o formulário não inventar um por typo.
+    pub groups: Vec<String>,
     pub group: String,
     pub ip: String,
     pub hostnames: String,
@@ -110,7 +120,8 @@ pub struct EntryForm {
 }
 
 pub struct RenameForm {
-    pub group: usize,
+    /// `None` ao criar: o grupo só entra no documento no submit.
+    pub target: Option<usize>,
     pub name: String,
     pub error: Option<String>,
 }
@@ -374,6 +385,18 @@ impl State {
 
         self.modal = Modal::Entry(EntryForm {
             target,
+            groups: self
+                .document
+                .block
+                .as_ref()
+                .map(|block| {
+                    block
+                        .groups
+                        .iter()
+                        .map(|group| group.name.clone())
+                        .collect()
+                })
+                .unwrap_or_default(),
             group: current.name.clone(),
             ip,
             hostnames,
@@ -466,8 +489,9 @@ impl State {
             return;
         };
 
-        let (index, name) = match Group::new(form.name.clone()) {
-            Ok(group) => (form.group, group.name),
+        let target = form.target;
+        let name = match Group::new(form.name.clone()) {
+            Ok(group) => group.name,
             Err(error) => {
                 if let Modal::Rename(form) = &mut self.modal {
                     form.error = Some(error.to_string());
@@ -476,8 +500,36 @@ impl State {
             }
         };
 
-        if let Some(group) = self.group_mut(index) {
-            group.name = name;
+        let taken = self.document.block.as_ref().is_some_and(|block| {
+            block
+                .groups
+                .iter()
+                .enumerate()
+                .any(|(index, group)| Some(index) != target && group.name == name)
+        });
+        if taken {
+            if let Modal::Rename(form) = &mut self.modal {
+                form.error = Some(Error::DuplicateGroup(name).to_string());
+            }
+            return;
+        }
+
+        match target {
+            Some(index) => {
+                if let Some(group) = self.group_mut(index) {
+                    group.name = name;
+                }
+            }
+            None => {
+                if let Some(block) = self.document.block.as_mut() {
+                    block.groups.push(Group {
+                        name,
+                        entries: Vec::new(),
+                    });
+                }
+                // Um filtro ativo esconderia o grupo recém-criado.
+                self.search.clear();
+            }
         }
         self.modal = Modal::None;
     }
@@ -592,8 +644,17 @@ impl State {
     }
 
     fn apply_pressed(&mut self) {
+        // Ctrl+S chega aqui sem passar pelos gates do `when` da view.
+        if self.busy || !matches!(self.modal, Modal::None) {
+            return;
+        }
         if self.document.block.is_none() {
             self.status = Some(Status::error("There is no managed block to apply"));
+            return;
+        }
+        // Write idêntico gastaria uma vaga de backup e pediria senha à toa.
+        if !self.is_dirty() {
+            self.status = Some(Status::ok("No changes to apply"));
             return;
         }
         let pending = Pending {
@@ -686,15 +747,11 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::ToggleGroupCollapsed(index) => state.toggle_collapsed(index),
         // Bloco vazio sem grupo nenhum não teria por onde começar além do Import.
         Message::NewGroup => {
-            if let Some(block) = state.document.block.as_mut() {
-                block.groups.push(Group {
-                    name: "New group".to_owned(),
-                    entries: Vec::new(),
-                });
-                let group = block.groups.len() - 1;
+            if state.document.block.is_some() {
+                // O grupo só entra no documento no submit: cancelar não pode deixar lixo.
                 state.modal = Modal::Rename(RenameForm {
-                    group,
-                    name: "New group".to_owned(),
+                    target: None,
+                    name: String::new(),
                     error: None,
                 });
             }
@@ -704,7 +761,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         Message::RenameGroup(index) => {
             if let Some(group) = state.group(index) {
                 state.modal = Modal::Rename(RenameForm {
-                    group: index,
+                    target: Some(index),
                     name: group.name.clone(),
                     error: None,
                 });
@@ -1085,6 +1142,82 @@ mod tests {
 
         assert_eq!(state.group(0).unwrap().name, "Dev");
         assert!(matches!(state.modal(), Modal::Rename(_)));
+    }
+
+    #[test]
+    fn cancelling_a_new_group_leaves_no_group_behind() {
+        let mut state = state();
+        send(&mut state, Message::NewGroup);
+        send(&mut state, Message::FormCancel);
+
+        assert!(!state.is_dirty());
+        assert_eq!(state.document().block.as_ref().unwrap().groups.len(), 2);
+    }
+
+    #[test]
+    fn a_new_group_is_added_only_when_named() {
+        let mut state = state();
+        send(&mut state, Message::NewGroup);
+        send(&mut state, Message::RenameName("Ops".to_owned()));
+        send(&mut state, Message::RenameSubmit);
+
+        let groups = &state.document().block.as_ref().unwrap().groups;
+        assert_eq!(groups.len(), 3);
+        assert_eq!(groups[2].name, "Ops");
+        assert!(state.is_dirty());
+        assert!(matches!(state.modal(), Modal::None));
+    }
+
+    #[test]
+    fn a_new_group_cannot_take_an_existing_name() {
+        let mut state = state();
+        send(&mut state, Message::NewGroup);
+        send(&mut state, Message::RenameName("Dev".to_owned()));
+        send(&mut state, Message::RenameSubmit);
+
+        assert_eq!(state.document().block.as_ref().unwrap().groups.len(), 2);
+        assert!(matches!(state.modal(), Modal::Rename(_)));
+    }
+
+    #[test]
+    fn renaming_to_an_existing_name_is_refused() {
+        let mut state = state();
+        send(&mut state, Message::RenameGroup(1));
+        send(&mut state, Message::RenameName("Dev".to_owned()));
+        send(&mut state, Message::RenameSubmit);
+
+        assert_eq!(state.group(1).unwrap().name, "Prod");
+        assert!(matches!(state.modal(), Modal::Rename(_)));
+    }
+
+    #[test]
+    fn keeping_the_same_name_is_not_a_duplicate() {
+        let mut state = state();
+        send(&mut state, Message::RenameGroup(0));
+        send(&mut state, Message::RenameSubmit);
+
+        assert!(matches!(state.modal(), Modal::None));
+        assert!(!state.is_dirty());
+    }
+
+    #[test]
+    fn apply_without_changes_opens_nothing() {
+        let mut state = state();
+        send(&mut state, Message::ApplyPressed);
+
+        assert!(matches!(state.modal(), Modal::None));
+        assert_eq!(state.status().unwrap().text, "No changes to apply");
+    }
+
+    #[test]
+    fn apply_is_ignored_while_a_modal_is_open() {
+        let mut state = state();
+        send(&mut state, Message::ToggleEntry(0, 0));
+        state.modal = Modal::Confirm(Confirm::Reload);
+
+        send(&mut state, Message::ApplyPressed);
+
+        assert!(matches!(state.modal(), Modal::Confirm(Confirm::Reload)));
     }
 
     #[test]

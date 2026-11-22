@@ -18,6 +18,9 @@ pub enum Error {
     #[error("invalid group name: {0}")]
     InvalidGroupName(String),
 
+    #[error("a group named {0} already exists")]
+    DuplicateGroup(String),
+
     #[error("the file is not valid UTF-8")]
     NotUtf8,
 

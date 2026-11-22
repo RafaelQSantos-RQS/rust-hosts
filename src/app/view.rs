@@ -4,7 +4,8 @@ use std::collections::HashSet;
 
 use iced::font::Weight;
 use iced::widget::{
-    Space, button, checkbox, column, container, row, rule, scrollable, text, text_input, toggler,
+    Space, button, checkbox, column, container, pick_list, row, rule, scrollable, text, text_input,
+    toggler,
 };
 use iced::{Alignment, Border, Color, Element, Font, Length, Theme};
 
@@ -41,9 +42,17 @@ fn view_header(state: &State) -> Element<'_, Message> {
         .padding(8)
         .width(Length::Fill);
 
+    let has_groups = state
+        .document()
+        .block
+        .as_ref()
+        .is_some_and(|block| !block.groups.is_empty());
+
     container(
         row![
             search,
+            // Com o bloco vazio o botão primário do corpo já cria o primeiro grupo.
+            quiet_action("+ Group", when(state, has_groups, Message::NewGroup)),
             quiet_action("Import", when(state, true, Message::ImportOpen)),
             quiet_action("Restore", when(state, true, Message::RestoreOpen)),
         ]
@@ -287,7 +296,7 @@ fn view_footer(state: &State) -> Element<'_, Message> {
                 "Apply",
                 when(
                     state,
-                    state.document().has_block() && state.helper_ready(),
+                    state.document().has_block() && state.helper_ready() && state.is_dirty(),
                     Message::ApplyPressed,
                 ),
             ))
@@ -489,9 +498,13 @@ fn entry_modal(form: &EntryForm) -> Element<'_, Message> {
         ),
         field(
             "Group",
-            text_input("Dev", form.group.as_str())
-                .on_input(Message::FormGroup)
-                .on_submit(Message::FormSubmit),
+            // Lista fechada: um typo não pode criar um grupo sem aviso (+ Group cria).
+            pick_list(
+                form.groups.as_slice(),
+                Some(form.group.clone()),
+                Message::FormGroup,
+            )
+            .width(Length::Fill),
         ),
     ]
     .spacing(12);
@@ -513,8 +526,14 @@ fn entry_modal(form: &EntryForm) -> Element<'_, Message> {
 }
 
 fn rename_modal(form: &RenameForm) -> Element<'_, Message> {
+    let (title, submit) = if form.target.is_some() {
+        ("Rename group", "Save")
+    } else {
+        ("New group", "Create")
+    };
+
     let mut content = column![
-        text("Rename group").size(18),
+        text(title).size(18),
         field(
             "Name",
             text_input("Group name", form.name.as_str())
@@ -533,7 +552,7 @@ fn rename_modal(form: &RenameForm) -> Element<'_, Message> {
             row![
                 Space::new().width(Length::Fill),
                 action("Cancel", Some(Message::FormCancel)),
-                primary_action("Save", Some(Message::RenameSubmit)),
+                primary_action(submit, Some(Message::RenameSubmit)),
             ]
             .spacing(8),
         )

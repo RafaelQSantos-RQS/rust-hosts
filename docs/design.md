@@ -74,17 +74,18 @@ Qualquer mudança no `/etc/hosts` desde o carregamento bloqueia o Apply. A UI of
 Textos da UI em inglês; documentação em português.
 
 - Janela 900x600, título "Rust Hosts", tema padrão do Iced.
-- Topo: busca por IP/hostname/grupo, Import, Restore.
+- Topo: busca por IP/hostname/grupo, + Group, Import, Restore.
 - Lista por grupos: cabeçalho com toggle, nome, contagem, + Entry, renomear/excluir (excluir só vazio); linhas com toggle, IP, hostnames, editar/excluir.
-- Rodapé: estado dirty, mensagem de status (clique dispensa), Reload e Apply como única ação primária.
+- Rodapé: estado dirty, mensagem de status (clique dispensa), Reload e Apply como única ação primária; Apply fica desabilitado sem alterações.
 - "Unmanaged entries" colapsável e somente leitura.
 - Se o helper instalado falta ou é de outra versão, uma faixa no rodapé desabilita o Apply e oferece Install helper (`pkexec install`), Copy command e Recheck.
 - Estados: sem bloco (Import/Create block), bloco vazio (New group/Import), arquivo alterado, erro de leitura (Reload/Restore).
-- Modais: Add/Edit Entry (IP, hostnames, grupo), Rename, Import, Restore, Diff/Apply, Confirm Delete/Reload/Close, Conflito externo. O diff é lado a lado e destaca as linhas alteradas.
+- Criar grupo: New group no bloco vazio, + Group no topo quando já há grupos. O grupo só entra no documento ao confirmar o nome e não pode repetir um nome existente; o modal é o mesmo do Rename.
+- Modais: Add/Edit Entry (IP, hostnames, grupo escolhido numa lista), Rename, Import, Restore, Diff/Apply, Confirm Delete/Reload/Close, Conflito externo. O diff é lado a lado e destaca as linhas alteradas.
 - Erros e o resultado do Apply aparecem numa faixa no rodapé; na tela de erro a faixa aparece sob a mensagem.
 - Busca filtra entradas; grupo que casa mostra todas; grupo sem matches some; busca sem resultado avisa e oferece Clear search.
 - Toggle de grupo: se todas habilitadas, desabilita todas; senão habilita todas.
-- Enter envia o formulário; Esc fecha o modal, nunca durante a escrita.
+- Enter envia o formulário; Esc fecha o modal, nunca durante a escrita; Ctrl+S abre o diff do Apply.
 - Fechar com alterações não salvas pede confirmação.
 
 ## Empacotamento
