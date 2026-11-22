@@ -62,7 +62,7 @@ Qualquer mudança no `/etc/hosts` desde o carregamento bloqueia o Apply. A UI of
 ## Segurança
 
 - A GUI roda como usuário; se `geteuid() == 0` sem subcomando de helper, recusa iniciar.
-- Helper root-owned em `/usr/local/libexec/rust-hosts-helper`, instalado pelo `install.sh`; GUI em `~/.local/bin/rust-hosts`.
+- Helper root-owned em `/usr/local/libexec/rust-hosts-helper`, instalado pelo próprio app via `pkexec install`; a GUI roda de qualquer caminho.
 - O helper só escreve `/etc/hosts`; valida UTF-8, tamanho, marcadores e hash; preserva modo/dono; escrita atômica.
 - `pkexec` é usado apenas para o helper; cancelamento e erro viram mensagem na UI.
 - Validação: IP via `IpAddr`; hostnames sem whitespace/controle; grupo não vazio e sem marcadores; duplicatas são avisadas mas permitidas.
@@ -84,7 +84,8 @@ Textos da UI em inglês; documentação em português.
 
 ## Empacotamento
 
-- `install.sh`: `cargo build --release`; instala GUI em `~/.local/bin`, helper root-owned em `/usr/local/libexec`, `.desktop` + ícone.
+- `cargo build --release` gera a GUI e o helper; o app instala o helper root-owned via `pkexec` e mostra o comando equivalente para copiar.
+- `packaging/` traz `.desktop` e ícone para quem quiser instalar a GUI no menu.
 - Desenvolvimento: `cargo run --release`; o helper é instalado uma vez.
 - Sem Flatpak (o sandbox não escreve no `/etc` do host sem escape). AppImage só no futuro, com helper root-owned.
 
