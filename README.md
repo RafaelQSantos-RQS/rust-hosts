@@ -46,17 +46,36 @@ Ainda não há script de empacotamento no repositório. O layout previsto para o
 
 ```text
 AppDir/
+  AppRun
+  rust-hosts.desktop                              ← exigido na raiz
+  rust-hosts.png                                  ← exigido na raiz (256x256)
   usr/bin/rust-hosts
   usr/bin/rust-hosts-helper
   usr/share/applications/rust-hosts.desktop
+  usr/share/icons/hicolor/256x256/apps/rust-hosts.png
   usr/share/icons/hicolor/scalable/apps/rust-hosts.svg
 ```
 
 - Os dois binários precisam ficar **na mesma pasta**: `helper_source()` procura `rust-hosts-helper` ao lado da GUI, e é esse arquivo que o botão **Install helper** instala via `pkexec`.
 - O AppImage é montado num caminho gravável pelo usuário, então o helper **não** roda como root de dentro dele. A GUI oferece a instalação e mostra o comando equivalente (ADR-0006).
 - `pkexec`/polkit não entram no pacote: continuam sendo requisito do sistema.
-- O `.desktop` de `packaging/` já usa `Exec=rust-hosts` e `Icon=rust-hosts`; basta colocá-lo em `usr/share/applications/` e o SVG em `usr/share/icons/hicolor/scalable/apps/`.
-- A ferramenta de build (não incluída) é `appimagetool`, executada depois de `cargo build --release` e de montar o `AppDir`.
+- O `appimagetool` procura o `.desktop` e o ícone **só na raiz do AppDir** (não em `usr/share/`). Por isso as cópias em `usr/share/` — que são as corretas para o sistema — precisam ser espelhadas na raiz antes de gerar o AppImage.
+- `AppRun` deve ser executável e apontar para a GUI dentro do AppDir:
+
+  ```sh
+  #!/bin/sh
+  HERE="$(dirname "$(readlink -f "$0")")"
+  exec "$HERE/usr/bin/rust-hosts" "$@"
+  ```
+
+- O `.desktop` de `packaging/` já usa `Exec=rust-hosts` e `Icon=rust-hosts`, e passa no `desktop-file-validate`.
+- Geração (com `appimagetool` instalado e `ARCH=x86_64`):
+
+  ```sh
+  ARCH=x86_64 appimagetool AppDir rust-hosts-x86_64.AppImage
+  ```
+
+O teste local gerou um AppImage de ~8 MB com os dois binários lado a lado; `rust-hosts-helper --protocol` respondeu `1` de dentro do pacote extraído. Nenhuma mudança no código Rust foi necessária.
 
 Para instalar só o atalho na sessão atual, sem AppImage:
 
