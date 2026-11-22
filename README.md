@@ -47,11 +47,12 @@ Ainda não há script de empacotamento no repositório. O layout previsto para o
 ```text
 AppDir/
   AppRun
-  rust-hosts.desktop                              ← exigido na raiz
+  io.github.RafaelQSantos_RQS.RustHosts.desktop   ← exigido na raiz
   rust-hosts.png                                  ← exigido na raiz (256x256)
   usr/bin/rust-hosts
   usr/bin/rust-hosts-helper
-  usr/share/applications/rust-hosts.desktop
+  usr/share/applications/io.github.RafaelQSantos_RQS.RustHosts.desktop
+  usr/share/metainfo/io.github.RafaelQSantos_RQS.RustHosts.appdata.xml
   usr/share/icons/hicolor/256x256/apps/rust-hosts.png
   usr/share/icons/hicolor/scalable/apps/rust-hosts.svg
 ```
@@ -69,7 +70,8 @@ AppDir/
   exec "$HERE/usr/bin/rust-hosts" "$@"
   ```
 
-- O `.desktop` de `packaging/` já usa `Exec=rust-hosts` e `Icon=rust-hosts`, e passa no `desktop-file-validate`.
+- O `.desktop` de `packaging/` usa `Exec=rust-hosts` e `Icon=rust-hosts`, passa no `desktop-file-validate` e tem o mesmo ID reverse-DNS do metadado AppStream no nome do arquivo. Isso é necessário porque o `appimagetool` procura o `.appdata.xml` pelo nome do `.desktop`, enquanto o `appstreamcli` exige que ele coincida com o `<id>`.
+- O metadado AppStream fica em `usr/share/metainfo/`, traz descrição, licença MIT, homepage e o release `0.2.0`. Valide o AppDir com `appstreamcli validate-tree AppDir` antes de gerar a imagem.
 - Geração (com `appimagetool` instalado e `ARCH=x86_64`):
 
   ```sh
@@ -81,7 +83,7 @@ O teste local gerou um AppImage de ~8 MB com os dois binários lado a lado; `rus
 Para instalar só o atalho na sessão atual, sem AppImage:
 
 ```sh
-cp packaging/rust-hosts.desktop ~/.local/share/applications/
+cp packaging/io.github.RafaelQSantos_RQS.RustHosts.desktop ~/.local/share/applications/
 cp assets/rust-hosts.svg ~/.local/share/icons/hicolor/scalable/apps/
 ```
 
@@ -105,7 +107,8 @@ Import e Restore reescrevem o arquivo inteiro com `--restore`; Apply troca apena
 | `src/backup.rs`, `src/import.rs` | backups e importação |
 | `src/app.rs`, `src/app/view.rs` | estado, mensagens e layout Iced |
 | `assets/rust-hosts.svg` | ícone do app |
-| `packaging/rust-hosts.desktop` | entrada de menu (AppImage e instalação manual) |
+| `packaging/io.github.RafaelQSantos_RQS.RustHosts.desktop` | entrada de menu (AppImage e instalação manual) |
+| `packaging/io.github.RafaelQSantos_RQS.RustHosts.appdata.xml` | metadados AppStream (descrição, licença, release) |
 | `tests/parser.rs` | fixtures de aceite do formato |
 
 O parser e a lógica de escrita são UI-free e testáveis; a camada Iced só chama essas funções. Os textos da interface são em inglês; a documentação é em português.

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.RafaelQSantos_RQS.RustHosts</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Rust Hosts</name>
+  <summary>Edit the managed /etc/hosts block from a desktop app</summary>
+  <description>
+    <p>Rust Hosts manages a marked block of the system hosts file. Group entries by environment and enable or disable them in one click, without editing the file by hand.</p>
+    <p>Every edit is shown in a diff before a root-owned helper writes the file. An automatic backup and a hash check protect against accidental changes and external edits. Content outside the managed block is preserved.</p>
+  </description>
+  <launchable type="desktop-id">io.github.RafaelQSantos_RQS.RustHosts.desktop</launchable>
+  <url type="homepage">https://github.com/RafaelQSantos-RQS/rust-hosts</url>
+  <url type="bugtracker">https://github.com/RafaelQSantos-RQS/rust-hosts/issues</url>
+  <developer><name>Rafael Queiroz Santos</name></developer>
+  <categories>
+    <category>Development</category>
+  </categories>
+  <releases>
+    <release version="0.2.0" date="2026-11-22"/>
+  </releases>
+</component>
