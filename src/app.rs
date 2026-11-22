@@ -165,6 +165,7 @@ pub enum Message {
     CreateBlock,
     ToggleGroup(usize),
     ToggleGroupCollapsed(usize),
+    ToggleAll,
     NewGroup,
     AddEntry(usize),
     RenameGroup(usize),
@@ -352,6 +353,32 @@ impl State {
         for entry in &mut group.entries {
             entry.enabled = !disable;
         }
+    }
+
+    fn toggle_all(&mut self) {
+        let enable = !self.all_enabled();
+        if let Some(block) = self.document.block.as_mut() {
+            for entry in block.groups.iter_mut().flat_map(|group| &mut group.entries) {
+                entry.enabled = enable;
+            }
+        }
+    }
+
+    pub fn has_entries(&self) -> bool {
+        self.document
+            .block
+            .as_ref()
+            .is_some_and(|block| block.groups.iter().any(|group| !group.entries.is_empty()))
+    }
+
+    pub fn all_enabled(&self) -> bool {
+        self.document.block.as_ref().is_some_and(|block| {
+            block
+                .groups
+                .iter()
+                .flat_map(|group| &group.entries)
+                .all(|entry| entry.enabled)
+        })
     }
 
     fn toggle_collapsed(&mut self, index: usize) {
@@ -745,6 +772,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
         }
         Message::ToggleGroup(index) => state.toggle_group(index),
         Message::ToggleGroupCollapsed(index) => state.toggle_collapsed(index),
+        Message::ToggleAll => state.toggle_all(),
         // Bloco vazio sem grupo nenhum não teria por onde começar além do Import.
         Message::NewGroup => {
             if state.document.block.is_some() {
@@ -1055,6 +1083,30 @@ mod tests {
 
         let entries = &state.group(1).unwrap().entries;
         assert!(entries.iter().all(|entry| !entry.enabled));
+    }
+
+    #[test]
+    fn toggle_all_enables_then_disables_the_whole_block() {
+        let mut state = state();
+        assert!(!state.all_enabled());
+
+        send(&mut state, Message::ToggleAll);
+
+        assert!(state.all_enabled());
+        assert!(state.is_dirty());
+
+        send(&mut state, Message::ToggleAll);
+
+        let entries = state
+            .document()
+            .block
+            .as_ref()
+            .unwrap()
+            .groups
+            .iter()
+            .flat_map(|group| &group.entries);
+        assert!(entries.clone().all(|entry| !entry.enabled));
+        assert_eq!(entries.count(), 3);
     }
 
     #[test]

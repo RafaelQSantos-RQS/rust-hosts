@@ -291,6 +291,14 @@ fn view_footer(state: &State) -> Element<'_, Message> {
             bar = bar.push(view_status(state, status));
         }
         bar.push(Space::new().width(Length::Fill))
+            .push(quiet_action(
+                if state.all_enabled() {
+                    "Disable all"
+                } else {
+                    "Enable all"
+                },
+                when(state, state.has_entries(), Message::ToggleAll),
+            ))
             .push(quiet_action("Reload", when(state, true, Message::Reload)))
             .push(primary_action(
                 "Apply",
