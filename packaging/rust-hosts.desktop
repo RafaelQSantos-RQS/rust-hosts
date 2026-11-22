@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Rust Hosts
+Comment=Edit the managed /etc/hosts block
+Exec=rust-hosts
+Icon=rust-hosts
+Terminal=false
+Categories=Utility;System;
+StartupNotify=true
