@@ -9,3 +9,4 @@ Terminal=false
 Categories=Development;
 Keywords=hosts;dns;domains;developer;
 StartupNotify=true
+StartupWMClass=io.github.RafaelQSantos_RQS.RustHosts

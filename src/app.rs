@@ -21,7 +21,15 @@ pub const HOSTS_PATH: &str = "/etc/hosts";
 pub fn run() -> iced::Result {
     iced::application(State::load, update, view)
         .title("Rust Hosts")
-        .window_size((900, 600))
+        .window(iced::window::Settings {
+            size: iced::Size::new(900.0, 600.0),
+            // O GNOME casa a janela com o .desktop pelo app_id (Wayland) e WM_CLASS (X11).
+            platform_specific: iced::window::settings::PlatformSpecific {
+                application_id: String::from("io.github.RafaelQSantos_RQS.RustHosts"),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
         .exit_on_close_request(false)
         .subscription(subscription)
         .run()
