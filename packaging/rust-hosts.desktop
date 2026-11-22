@@ -1,9 +1,11 @@
 [Desktop Entry]
 Type=Application
 Name=Rust Hosts
+GenericName=Hosts File Editor
 Comment=Edit the managed /etc/hosts block
 Exec=rust-hosts
 Icon=rust-hosts
 Terminal=false
-Categories=Utility;System;
+Categories=Development;
+Keywords=hosts;dns;domains;developer;
 StartupNotify=true

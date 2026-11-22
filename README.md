@@ -40,6 +40,31 @@ Na primeira execução o app mostra uma faixa dizendo que o helper não está in
 
 A GUI roda como usuário e se recusa a iniciar como root.
 
+## Empacotamento AppImage (em preparação)
+
+Ainda não há script de empacotamento no repositório. O layout previsto para o `AppDir` é:
+
+```text
+AppDir/
+  usr/bin/rust-hosts
+  usr/bin/rust-hosts-helper
+  usr/share/applications/rust-hosts.desktop
+  usr/share/icons/hicolor/scalable/apps/rust-hosts.svg
+```
+
+- Os dois binários precisam ficar **na mesma pasta**: `helper_source()` procura `rust-hosts-helper` ao lado da GUI, e é esse arquivo que o botão **Install helper** instala via `pkexec`.
+- O AppImage é montado num caminho gravável pelo usuário, então o helper **não** roda como root de dentro dele. A GUI oferece a instalação e mostra o comando equivalente (ADR-0006).
+- `pkexec`/polkit não entram no pacote: continuam sendo requisito do sistema.
+- O `.desktop` de `packaging/` já usa `Exec=rust-hosts` e `Icon=rust-hosts`; basta colocá-lo em `usr/share/applications/` e o SVG em `usr/share/icons/hicolor/scalable/apps/`.
+- A ferramenta de build (não incluída) é `appimagetool`, executada depois de `cargo build --release` e de montar o `AppDir`.
+
+Para instalar só o atalho na sessão atual, sem AppImage:
+
+```sh
+cp packaging/rust-hosts.desktop ~/.local/share/applications/
+cp assets/rust-hosts.svg ~/.local/share/icons/hicolor/scalable/apps/
+```
+
 ## Como uma aplicação funciona
 
 1. O app serializa o bloco e relê `/etc/hosts`, comparando o hash com o da carga inicial.
@@ -59,6 +84,8 @@ Import e Restore reescrevem o arquivo inteiro com `--restore`; Apply troca apena
 | `src/apply.rs` | chamada via `pkexec`, instalação e checagem do helper |
 | `src/backup.rs`, `src/import.rs` | backups e importação |
 | `src/app.rs`, `src/app/view.rs` | estado, mensagens e layout Iced |
+| `assets/rust-hosts.svg` | ícone do app |
+| `packaging/rust-hosts.desktop` | entrada de menu (AppImage e instalação manual) |
 | `tests/parser.rs` | fixtures de aceite do formato |
 
 O parser e a lógica de escrita são UI-free e testáveis; a camada Iced só chama essas funções. Os textos da interface são em inglês; a documentação é em português.
