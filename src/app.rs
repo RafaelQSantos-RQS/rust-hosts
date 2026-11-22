@@ -562,6 +562,15 @@ impl State {
             return;
         };
 
+        // Com erro de leitura o estado guarda hash vazio: sem reler o arquivo,
+        // o Restore cairia sempre em "mudou no disco" e nunca recuperaria nada.
+        if self.load_error.is_some()
+            && let Ok(text) = hosts::read(&self.hosts_path)
+        {
+            self.hash = hosts::hash(text.as_bytes());
+            self.loaded = text;
+        }
+
         let pending = Pending {
             title: "Restore backup".to_owned(),
             before: self.loaded.clone(),
@@ -944,6 +953,31 @@ mod tests {
         send(&mut state, Message::FormCancel);
 
         assert!(matches!(state.modal(), Modal::Conflict));
+    }
+
+    #[test]
+    fn restore_recovers_a_file_that_fails_to_parse() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hosts");
+        let broken = "# BEGIN rust-hosts\n10.0.0.1 sem-grupo.test\n# END rust-hosts\n";
+        std::fs::write(&path, broken).unwrap();
+
+        let mut state = state();
+        state.hosts_path = path;
+        state.loaded = String::new();
+        state.hash = String::new();
+        state.load_error = Some("the managed block is missing, duplicated or malformed".to_owned());
+        state.modal = Modal::Restore(RestoreForm {
+            backups: Vec::new(),
+            selected: Some(0),
+            content: Some("127.0.0.1 localhost\n".to_owned()),
+        });
+
+        send(&mut state, Message::RestoreConfirm);
+
+        // Diff e não Conflict: o hash foi refeito a partir do arquivo ilegível.
+        assert!(matches!(state.modal(), Modal::Diff(_)));
+        assert_eq!(state.loaded, broken);
     }
 
     #[test]

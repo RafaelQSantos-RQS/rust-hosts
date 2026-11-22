@@ -21,17 +21,18 @@ const STAMP: &[time::format_description::FormatItem<'static>] =
     time::macros::format_description!("[year]-[month]-[day] [hour]:[minute] UTC");
 
 pub fn view(state: &State) -> Element<'_, Message> {
-    if let Some(error) = state.load_error() {
-        return view_error(error);
+    // O modal também cobre a tela de erro: Restore é o caminho de recuperação.
+    if !matches!(state.modal(), Modal::None) {
+        return view_modal(state.modal());
     }
 
-    match state.modal() {
-        Modal::None => column![view_header(state), view_body(state), view_footer(state)]
-            .height(Length::Fill)
-            .into(),
-        // O modal substitui a tela inteira: nenhum clique atravessa para a lista.
-        modal => view_modal(modal),
+    if let Some(error) = state.load_error() {
+        return view_error(state, error);
     }
+
+    column![view_header(state), view_body(state), view_footer(state)]
+        .height(Length::Fill)
+        .into()
 }
 
 fn view_header(state: &State) -> Element<'_, Message> {
@@ -386,10 +387,13 @@ fn view_status<'a>(state: &'a State, status: &'a Status) -> Element<'a, Message>
         .into()
 }
 
-fn view_error(error: &str) -> Element<'_, Message> {
-    let content = column![
+fn view_error<'a>(state: &'a State, error: &'a str) -> Element<'a, Message> {
+    let mut content = column![
         text("Could not load the hosts file").size(18),
         text(error).size(13).style(text::danger),
+        text("Fix /etc/hosts by hand, or restore a backup.")
+            .size(12)
+            .style(text::secondary),
         row![
             primary_action("Reload", Some(Message::Reload)),
             action("Restore", Some(Message::RestoreOpen)),
@@ -398,6 +402,11 @@ fn view_error(error: &str) -> Element<'_, Message> {
     ]
     .spacing(12)
     .align_x(Alignment::Center);
+
+    // Sem a lista de grupos, o rodapé não existe: a faixa de status vem para cá.
+    if let Some(status) = state.status() {
+        content = content.push(view_status(state, status));
+    }
 
     container(content)
         .padding(24)

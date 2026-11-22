@@ -48,12 +48,17 @@ pub fn import(document: &Document, selected: &[Candidate]) -> String {
 
     let mut block = document.block.clone().unwrap_or_default();
     for candidate in selected {
-        let name = candidate.group.as_deref().unwrap_or(UNGROUPED);
+        // Nome validado: um comentário não pode virar um cabeçalho que não reparseia.
+        let name = candidate
+            .group
+            .as_deref()
+            .and_then(|name| Group::new(name).ok())
+            .map_or_else(|| UNGROUPED.to_owned(), |group| group.name);
         let group = match block.groups.iter().position(|group| group.name == name) {
             Some(index) => index,
             None => {
                 block.groups.push(Group {
-                    name: name.to_owned(),
+                    name,
                     entries: Vec::new(),
                 });
                 block.groups.len() - 1
@@ -88,6 +93,7 @@ fn scan_region(region: Region, text: &str) -> Vec<Candidate> {
                         });
                     }
                 }
+                None if comment.is_empty() => group = None,
                 None => group = Some(comment.to_owned()),
             }
         } else if let Some((ip, hostnames)) = parse_entry(trimmed)
@@ -254,5 +260,17 @@ mod tests {
         let candidates = scan(&document("10.0.0.7 foo.test # note\n"));
 
         assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn a_bare_hash_is_not_a_group_header() {
+        let document = document("#\n10.0.0.9 orphan.test\n");
+        let candidates = scan(&document);
+        assert_eq!(candidates[0].group, None);
+
+        let result = import(&document, &candidates);
+
+        assert!(Document::parse(&result).is_ok());
+        assert!(result.contains("# Ungrouped\n10.0.0.9 orphan.test\n"));
     }
 }
