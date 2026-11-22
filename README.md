@@ -56,7 +56,8 @@ AppDir/
   usr/share/icons/hicolor/scalable/apps/rust-hosts.svg
 ```
 
-- Os dois binários precisam ficar **na mesma pasta**: `helper_source()` procura `rust-hosts-helper` ao lado da GUI, e é esse arquivo que o botão **Install helper** instala via `pkexec`.
+- O `usr/bin` acima é **interno à imagem**: nada é gravado no `/usr/bin` do sistema. Gerenciadores como o Gear Lever apenas montam ou extraem o `.AppImage` em sua própria pasta; como o `AppRun` resolve o próprio diretório, o pacote funciona de qualquer lugar.
+- Os dois binários precisam ficar **na mesma pasta**: `helper_source()` procura `rust-hosts-helper` ao lado da GUI, e é esse arquivo que o botão **Install helper** instala via `pkexec`. O único caminho fixo no código é o destino `/usr/local/libexec/rust-hosts-helper`, que continua exigindo autorização.
 - O AppImage é montado num caminho gravável pelo usuário, então o helper **não** roda como root de dentro dele. A GUI oferece a instalação e mostra o comando equivalente (ADR-0006).
 - `pkexec`/polkit não entram no pacote: continuam sendo requisito do sistema.
 - O `appimagetool` procura o `.desktop` e o ícone **só na raiz do AppDir** (não em `usr/share/`). Por isso as cópias em `usr/share/` — que são as corretas para o sistema — precisam ser espelhadas na raiz antes de gerar o AppImage.
