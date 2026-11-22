@@ -1,5 +1,5 @@
 use rust_hosts::Error;
-use rust_hosts::block::{BEGIN, Block, Document, END, Entry, Eol, Group};
+use rust_hosts::block::{BEGIN, Block, Document, END, Entry, Eol, Group, duplicate_hostnames};
 
 const NO_BLOCK: &str = "\
 127.0.0.1 localhost
@@ -321,4 +321,24 @@ fn entry_new_monta_entrada_valida() {
     assert_eq!(entry.ip, ip);
     assert_eq!(entry.hostnames, ["localhost"]);
     assert!(!entry.enabled);
+}
+
+#[test]
+fn hostnames_repetidos_ignoram_entradas_desabilitadas() {
+    let doc = parse(
+        "\
+# BEGIN rust-hosts
+# Dev
+10.0.0.1 api.test old.test
+10.0.0.2 api.test
+10.0.0.3 old.test
+# 10.0.0.4 api.test
+# Homolog
+10.0.0.5 API.TEST
+# END rust-hosts
+",
+    );
+
+    assert_eq!(duplicate_hostnames(&doc), ["api.test", "old.test"]);
+    assert!(duplicate_hostnames(&parse(NO_BLOCK)).is_empty());
 }

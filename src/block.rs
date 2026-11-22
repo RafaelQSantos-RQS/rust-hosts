@@ -149,6 +149,32 @@ impl Document {
     }
 }
 
+/// Hostnames repetidos entre entradas habilitadas: em `/etc/hosts` o primeiro vence.
+pub fn duplicate_hostnames(document: &Document) -> Vec<String> {
+    let Some(block) = &document.block else {
+        return Vec::new();
+    };
+
+    let mut seen = std::collections::HashSet::new();
+    let mut duplicates: Vec<String> = Vec::new();
+    for hostname in block
+        .groups
+        .iter()
+        .flat_map(|group| &group.entries)
+        .filter(|entry| entry.enabled)
+        .flat_map(|entry| &entry.hostnames)
+    {
+        if !seen.insert(hostname.to_lowercase())
+            && !duplicates
+                .iter()
+                .any(|duplicate| duplicate.eq_ignore_ascii_case(hostname))
+        {
+            duplicates.push(hostname.clone());
+        }
+    }
+    duplicates
+}
+
 impl Group {
     /// Nome obrigatório e diferente dos marcadores, senão o bloco não reparseia.
     pub fn new(name: impl Into<String>) -> Result<Self, Error> {

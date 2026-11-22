@@ -44,7 +44,7 @@ O app só altera o bloco:
 
 1. Serializa o bloco.
 2. Relê `/etc/hosts` e compara o hash com o carregado; se mudou, bloqueia e oferece Reload/Diff.
-3. Mostra o diff do bloco; em import/restore, mostra o diff do arquivo inteiro.
+3. Mostra o diff do bloco; em import/restore, mostra o diff do arquivo inteiro. No Apply, avisa se algum hostname aparece em mais de uma entrada habilitada — o primeiro casamento vence e os demais ficam sem efeito.
 4. Cria backup timestamped em `~/.local/state/rust-hosts/backups/` (últimos 20).
 5. Chama `pkexec /usr/local/libexec/rust-hosts-helper --apply-block --expected-hash <hex>` com o novo bloco no stdin.
 6. O helper valida, substitui o bloco, preserva dono/modo e faz escrita atômica (temp + fsync + rename); falha se o hash não bater.

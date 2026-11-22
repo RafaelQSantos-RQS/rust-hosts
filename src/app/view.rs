@@ -661,16 +661,19 @@ fn diff_modal(pending: &Pending) -> Element<'_, Message> {
         buttons = buttons.push(primary_action("Apply", Some(Message::DiffConfirm)));
     }
 
-    column![
+    let mut content = column![
         text(pending.title.as_str()).size(18),
         text("Highlighted lines differ from the other side; everything else is unchanged.")
             .size(12)
             .style(text::secondary),
-        sides,
-        buttons,
     ]
-    .spacing(12)
-    .into()
+    .spacing(12);
+
+    if let Some(warning) = &pending.warning {
+        content = content.push(text(warning.as_str()).size(12).style(text::danger));
+    }
+
+    content.push(sides).push(buttons).into()
 }
 
 /// Comparação por conjunto, não por posição: a pergunta é "esta linha muda?".

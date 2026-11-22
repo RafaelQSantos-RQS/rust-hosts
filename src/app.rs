@@ -9,7 +9,7 @@ use iced::{Subscription, Task};
 use crate::Error;
 use crate::apply::{self, Failure};
 use crate::backup::{self, Backup};
-use crate::block::{Block, Document, Entry, Group};
+use crate::block::{self, Block, Document, Entry, Group};
 use crate::hosts;
 use crate::import::{self, Candidate};
 
@@ -143,6 +143,8 @@ pub struct Pending {
     pub before: String,
     pub after: String,
     pub write: Option<Write>,
+    /// Aviso que depende do documento, mostrado acima das colunas do diff.
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -596,6 +598,7 @@ impl State {
             before: self.loaded.clone(),
             after: import::import(&self.document, &selected),
             write: Some(Write::Full),
+            warning: None,
         };
         self.begin_write(pending);
     }
@@ -655,6 +658,7 @@ impl State {
             before: self.loaded.clone(),
             after: content,
             write: Some(Write::Full),
+            warning: None,
         };
         self.begin_write(pending);
     }
@@ -684,11 +688,20 @@ impl State {
             self.status = Some(Status::ok("No changes to apply"));
             return;
         }
+        let duplicates = block::duplicate_hostnames(&self.document);
+        let warning = (!duplicates.is_empty()).then(|| {
+            format!(
+                "Repeated in more than one enabled entry (the first match wins): {}",
+                duplicates.join(", ")
+            )
+        });
+
         let pending = Pending {
             title: "Apply managed block".to_owned(),
             before: self.baseline.block_text(),
             after: self.document.block_text(),
             write: Some(Write::Block),
+            warning,
         };
         self.begin_write(pending);
     }
@@ -905,6 +918,7 @@ fn update(state: &mut State, message: Message) -> Task<Message> {
                     before: state.loaded.clone(),
                     after: text,
                     write: None,
+                    warning: None,
                 });
             }
             Err(error) => state.status = Some(Status::error(error.to_string())),
