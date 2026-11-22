@@ -778,9 +778,10 @@ fn field<'a>(label: &'a str, input: impl Into<Element<'a, Message>>) -> Element<
 }
 
 fn action<'a>(label: &'a str, message: Option<Message>) -> Element<'a, Message> {
+    // Mesmo padding vertical do primary/danger: lado a lado eles têm a mesma altura.
     button(text(label).size(13))
         .style(button::secondary)
-        .padding([6, 12])
+        .padding([8, 16])
         .on_press_maybe(message)
         .into()
 }
